@@ -1,5 +1,7 @@
 package com.sh.ewalletllm.llmclient.service;
 
+import com.sh.ewalletllm.common.exception.GptErrorException;
+import com.sh.ewalletllm.common.exception.ResponseError;
 import com.sh.ewalletllm.llmclient.LlmType;
 import com.sh.ewalletllm.llmclient.dto.LlmChatRequestDto;
 import com.sh.ewalletllm.llmclient.dto.LlmChatResponseDto;
@@ -10,11 +12,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
+import org.springframework.web.ErrorResponseException;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +42,7 @@ public class GptWebClientService implements LlmWebClientService{
     @Override
     public Flux<LlmChatResponseDto> getChatCompletionStream(LlmChatRequestDto llmChatRequestDto) {
         GptRequestDto gptRequestDto = new GptRequestDto(llmChatRequestDto);
+        AtomicInteger count = new AtomicInteger(0);
         gptRequestDto.setStream(true);
         return webClient.post()
                 .uri("https://api.openai.com/v1/chat/completions")
@@ -46,13 +51,20 @@ public class GptWebClientService implements LlmWebClientService{
                 .retrieve()
                 .onStatus(HttpStatusCode::is4xxClientError, (clientResponse -> {
                     return clientResponse.bodyToMono(String.class).flatMap(body -> {
-                        log.error("Error Response : {}", body);
-                        return Mono.error(new RuntimeException("API 요청실패 : " + body));
+                        return Mono.error(new GptErrorException("API 요청실패 : " + body));
                     });
                 }))
                 .bodyToFlux(GptResponseDto.class)
-                .filter(response -> Optional.ofNullable(response.getSingleChoice().getFinish_reason()).isEmpty())
-                .map(LlmChatResponseDto::getLlmChatResponseDtoFromStream);
+                .takeWhile(response -> Optional.ofNullable(response.getSingleChoice().getFinish_reason()).isEmpty())
+                .map(gptResponseDto -> {
+                    try {
+                        return LlmChatResponseDto.getLlmChatResponseDtoFromStream(gptResponseDto);
+                    } catch (Exception e) {
+                        log.error("[GPT Response Error] : " + e.getMessage());
+                        return new LlmChatResponseDto(new ResponseError("500" , e.getMessage()));
+                    }
+                });
+//                .map(gptChatResponseDto -> LlmChatResponseDto.getLlmChatResponseDtoFromStream(gptChatResponseDto));
 
     }
 }

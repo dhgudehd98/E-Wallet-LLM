@@ -1,4 +1,4 @@
-package com.sh.ewalletllm.common;
+package com.sh.ewalletllm.config;
 
 import com.sh.ewalletllm.llmclient.LlmType;
 import com.sh.ewalletllm.llmclient.service.LlmWebClientService;

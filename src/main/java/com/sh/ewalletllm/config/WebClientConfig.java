@@ -1,4 +1,4 @@
-package com.sh.ewalletllm.common;
+package com.sh.ewalletllm.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
