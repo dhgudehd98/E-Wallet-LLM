@@ -5,11 +5,9 @@ import com.sh.ewalletllm.userChat.dto.UserChatResponseDto;
 import com.sh.ewalletllm.userChat.service.UserChatService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
 @RestController
@@ -29,9 +27,10 @@ public class UserChatController {
 
     @PostMapping("/streamCommand")
     public Flux<UserChatResponseDto> getChatCommand(
-            @RequestBody UserChatRequestDto chatRequestDto){
+            @RequestBody UserChatRequestDto chatRequestDto,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader){
         log.info("Front End INit ");
         log.info("Data  :" + chatRequestDto.toString());
-        return userChatService.getChatCommand(chatRequestDto);
+        return userChatService.getChatCommand(chatRequestDto, authHeader);
     }
 }

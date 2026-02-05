@@ -7,5 +7,5 @@ import reactor.core.publisher.Flux;
 public interface UserChatService {
     Flux<UserChatResponseDto> getChatStream(UserChatRequestDto chatRequestDto);
 
-    Flux<UserChatResponseDto> getChatCommand(UserChatRequestDto chatRequestDto);
+    Flux<UserChatResponseDto> getChatCommand(UserChatRequestDto chatRequestDto, String authHeader);
 }

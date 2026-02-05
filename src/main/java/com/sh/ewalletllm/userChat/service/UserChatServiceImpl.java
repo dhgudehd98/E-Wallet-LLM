@@ -53,16 +53,15 @@ public class UserChatServiceImpl implements UserChatService{
 
     /**
      * OPEN AI 통신 구조
-     * 1. 환전 예약 형식 전달
-     * 2. 사용자 요청 값 확인하고, GPT에서 Response 값을 확인함.
-     * 3. 확인한 다음 이상 없으면 -> 실제로 Spring Tomcat 서버에서 DB 저장
-     * 4. Spring Tomcat에서 성공 / 실패 여부 메세지 전달 받음.
-     *      - 환전 예약 성공 -> 챗봇 화면에 성공적으로 예약이 완료된거랑 , 요청한 환결정보 출력해주기
-     *      - 환전 예약 실패 -> 챗봇 화면에 실패했다고, 알려주고 , 실패된 이유 출력
-     *
+     * 1. 사용자 요청에 맞게 AI 요청 -> AI 응답은 -> JSON 형태로 변환
+     * 2. 요청 받은 데이터 유효성 검사 확인(필수값이 정상적으로 들어가있는지 확인하기)
+     *   - 성공 시 , 3번으로
+     *   - 실패 시 , 필요 값 응답 메세지로 전송
+     * 3. 유효성 검사 통과 했으면 실제로 APP에서 환전 예약 진행
+     *  - 환전 예약 성공 / 실패 여부에 따라서 메세지 전송 = 실제로 GPT 응답
      */
     @Override
-    public Flux<UserChatResponseDto> getChatCommand(UserChatRequestDto chatRequestDto) {
+    public Flux<UserChatResponseDto> getChatCommand(UserChatRequestDto chatRequestDto, String authHeader) {
         return requestCommandJson(chatRequestDto) //Mono<ResRequestDto>
                 .map(response -> validateRequestDto(response)) //Mono<ValidationResult>
                 .flatMapMany(result -> { //Flux<ValidationResult>
@@ -73,7 +72,7 @@ public class UserChatServiceImpl implements UserChatService{
                                 .map(errors -> new UserChatResponseDto(errors));
                     }
 
-                    return appClientService.appClientReservation(result.getDto()) // Mono<AppReservationResultDto>
+                    return appClientService.appClientReservation(result.getDto(), authHeader) // Mono<AppReservationResultDto>
                             .flatMapMany(reservationResult ->
                                     Flux.just(new UserChatResponseDto(reservationResult.getMsg()))
                             );
@@ -102,9 +101,6 @@ public class UserChatServiceImpl implements UserChatService{
 
         if (resRequestDto.getInputExchangeMoney() == null)
             errors.add("예약하고 싶은 통화의 교환 금액을 입력해주세요.");
-
-        if (!"RESERVATION".equals(resRequestDto.getIntent()))
-            errors.add("환전에 관련된 요청만 가능합니다.");
 
         if (errors.isEmpty()) {
             return ValidationResult.success(resRequestDto);
@@ -167,9 +163,7 @@ public class UserChatServiceImpl implements UserChatService{
                        {
                            intent : RESERVATION
                            currencyKind : "", 
-                           
                            exchangeKind : "",
-                            
                            inputExchangeMoney : ,
                            reservationRate : ,
                            
