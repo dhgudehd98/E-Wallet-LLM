@@ -20,4 +20,15 @@ public class UserChatResponseDto {
         this.response = llmChatResponseDto.getLlmResponse();
         this.responseError = llmChatResponseDto.getResponseError();
     }
+
+    public UserChatResponseDto(String errors) {
+        this.response = errors
+        ;
+    }
+
+    public static UserChatResponseDto getMessage(String message) {
+        return new UserChatResponseDto(message);
+    }
+
+
 }

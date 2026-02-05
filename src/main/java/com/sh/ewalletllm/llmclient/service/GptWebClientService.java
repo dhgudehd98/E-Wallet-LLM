@@ -42,7 +42,6 @@ public class GptWebClientService implements LlmWebClientService{
     @Override
     public Flux<LlmChatResponseDto> getChatCompletionStream(LlmChatRequestDto llmChatRequestDto) {
         GptRequestDto gptRequestDto = new GptRequestDto(llmChatRequestDto);
-        AtomicInteger count = new AtomicInteger(0);
         gptRequestDto.setStream(true);
         return webClient.post()
                 .uri("https://api.openai.com/v1/chat/completions")
@@ -67,4 +66,29 @@ public class GptWebClientService implements LlmWebClientService{
 //                .map(gptChatResponseDto -> LlmChatResponseDto.getLlmChatResponseDtoFromStream(gptChatResponseDto));
 
     }
+
+    @Override
+    public Mono<LlmChatResponseDto> getCommandResRequestDto(LlmChatRequestDto llmChatRequestDto) {
+        GptRequestDto gptChatReqeustDto = new GptRequestDto(llmChatRequestDto);
+        log.info("바디 요청 데이터 화인하기 -> gptChat Request Dto : " + gptChatReqeustDto.toString());
+        return webClient.post()
+                .uri("https://api.openai.com/v1/chat/completions")
+                .header("Authorization", "Bearer " + gptApiKey)
+                .bodyValue(gptChatReqeustDto)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, (clientResponse -> {
+                    return clientResponse.bodyToMono(String.class).flatMap(body -> {
+                        log.error("Error Response : {}", body);
+                        return Mono.error(new GptErrorException("API 요청 실패 : " + body));
+                    });
+                }))
+                .bodyToMono(GptResponseDto.class)
+                .map(gptResponseDto -> new LlmChatResponseDto(gptResponseDto));
+    }
+
+    @Override
+    public Mono<LlmChatResponseDto> getChatCommandStream(LlmChatRequestDto llmChatRequestDto) {
+        return null;
+    }
+
 }

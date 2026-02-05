@@ -13,4 +13,7 @@ public interface LlmWebClientService {
     LlmType getLlmType();
 
     Flux<LlmChatResponseDto> getChatCompletionStream(LlmChatRequestDto llmChatRequestDto);
+
+    Mono<LlmChatResponseDto> getCommandResRequestDto(LlmChatRequestDto llmChatRequestDto);
+    Mono<LlmChatResponseDto> getChatCommandStream(LlmChatRequestDto llmChatRequestDto);
 }

@@ -26,6 +26,11 @@ public class LlmChatRequestDto {
         this.llmModel = userChatRequestDto.getLlmModel();
         this.systemPrompt = systemPrompt;
 
+    }
 
+    public LlmChatRequestDto(String systemPrompt, boolean useJson, LlmModel llmModel) {
+        this.systemPrompt = systemPrompt;
+        this.useJson = useJson;
+        this.llmModel = llmModel;
     }
 }

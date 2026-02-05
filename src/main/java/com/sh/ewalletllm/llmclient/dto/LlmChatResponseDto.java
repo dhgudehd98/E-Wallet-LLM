@@ -24,6 +24,10 @@ public class LlmChatResponseDto {
         this.llmResponse = llmResponse;
     }
 
+    public LlmChatResponseDto(GptResponseDto gptResponseDto) {
+        this.llmResponse = gptResponseDto.getSingleChoice().getMessage().getContent();
+    }
+
     public static LlmChatResponseDto getLlmChatResponseDtoFromStream(GptResponseDto gptChatResponseDto) {
         return new LlmChatResponseDto(gptChatResponseDto.getSingleChoice().getDelta().getContent());
     }

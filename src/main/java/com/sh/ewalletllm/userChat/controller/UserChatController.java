@@ -26,4 +26,12 @@ public class UserChatController {
         log.info("Data  :" + chatRequestDto.toString());
         return userChatService.getChatStream(chatRequestDto);
     }
+
+    @PostMapping("/streamCommand")
+    public Flux<UserChatResponseDto> getChatCommand(
+            @RequestBody UserChatRequestDto chatRequestDto){
+        log.info("Front End INit ");
+        log.info("Data  :" + chatRequestDto.toString());
+        return userChatService.getChatCommand(chatRequestDto);
+    }
 }
