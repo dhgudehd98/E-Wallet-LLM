@@ -31,6 +31,6 @@ public class UserChatController {
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader){
         log.info("Front End INit ");
         log.info("Data  :" + chatRequestDto.toString());
-        return userChatService.getChatCommand(chatRequestDto, authHeader);
+        return userChatService.getChatIntent(chatRequestDto, authHeader);
     }
 }

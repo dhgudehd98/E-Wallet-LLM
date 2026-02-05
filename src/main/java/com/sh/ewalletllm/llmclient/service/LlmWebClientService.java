@@ -15,5 +15,6 @@ public interface LlmWebClientService {
     Flux<LlmChatResponseDto> getChatCompletionStream(LlmChatRequestDto llmChatRequestDto);
 
     Mono<LlmChatResponseDto> getCommandResRequestDto(LlmChatRequestDto llmChatRequestDto);
-    Mono<LlmChatResponseDto> getChatCommandStream(LlmChatRequestDto llmChatRequestDto);
+
+    Mono<LlmChatResponseDto> getIntentDto(LlmChatRequestDto llmChatRequestDto);
 }

@@ -7,6 +7,7 @@ import com.sh.ewalletllm.llmclient.dto.LlmChatRequestDto;
 import com.sh.ewalletllm.llmclient.dto.LlmChatResponseDto;
 import com.sh.ewalletllm.llmclient.dto.gpt.request.GptRequestDto;
 import com.sh.ewalletllm.llmclient.dto.gpt.response.GptResponseDto;
+import com.sh.ewalletllm.userChat.dto.IntentDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -87,8 +88,22 @@ public class GptWebClientService implements LlmWebClientService{
     }
 
     @Override
-    public Mono<LlmChatResponseDto> getChatCommandStream(LlmChatRequestDto llmChatRequestDto) {
-        return null;
+    public Mono<LlmChatResponseDto> getIntentDto(LlmChatRequestDto llmChatRequestDto) {
+        GptRequestDto gptChatReqeustDto = new GptRequestDto(llmChatRequestDto);
+        log.info("바디 요청 데이터 화인하기 -> gptChat Request Dto : " + gptChatReqeustDto.toString());
+        return webClient.post()
+                .uri("https://api.openai.com/v1/chat/completions")
+                .header("Authorization", "Bearer " + gptApiKey)
+                .bodyValue(gptChatReqeustDto)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, (clientResponse -> {
+                    return clientResponse.bodyToMono(String.class).flatMap(body -> {
+                        log.error("Error Response : {}", body);
+                        return Mono.error(new GptErrorException("API 요청 실패 : " + body));
+                    });
+                }))
+                .bodyToMono(GptResponseDto.class)
+                .map(gptResponseDto -> new LlmChatResponseDto(gptResponseDto));
     }
 
 }
