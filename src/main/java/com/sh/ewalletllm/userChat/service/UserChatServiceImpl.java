@@ -6,9 +6,8 @@ import com.sh.ewalletllm.llmclient.LlmType;
 import com.sh.ewalletllm.llmclient.dto.LlmChatRequestDto;
 import com.sh.ewalletllm.llmclient.dto.LlmChatResponseDto;
 import com.sh.ewalletllm.llmclient.service.LlmReservationService;
+import com.sh.ewalletllm.llmclient.service.LlmRetrieveService;
 import com.sh.ewalletllm.llmclient.service.LlmWebClientService;
-import com.sh.ewalletllm.reservation.dto.ResRequestDto;
-import com.sh.ewalletllm.reservation.dto.ValidationResult;
 import com.sh.ewalletllm.userChat.dto.IntentDto;
 import com.sh.ewalletllm.userChat.dto.UserChatRequestDto;
 import com.sh.ewalletllm.userChat.dto.UserChatResponseDto;
@@ -44,6 +43,7 @@ public class UserChatServiceImpl implements UserChatService{
 
     private final Map<LlmType, LlmWebClientService> llmWebClientServiceMap;
     private final LlmReservationService llmReservationService;
+    private final LlmRetrieveService llmRetrieveService;
     private final ChatUtil chatUtil;
 
     @Override
@@ -68,8 +68,8 @@ public class UserChatServiceImpl implements UserChatService{
                     String intent = intentDto.getIntent();
                     return switch (intent) {
                         case "RESERVATION" -> llmReservationService.getReservationCommand(userChatRequestDto, authHeader);
+                        case "RETRIEVE" -> llmRetrieveService.getRetrieveCommand(userChatRequestDto);
 //            case "EXCHANGE" -> getExchangeCommand(userChatRequestDto, authHeader);
-//            case "RETRIEVE" -> getRetrieveCommand(userChatRequestDto, authHeader);
                         default-> Flux.just(
                                 new UserChatResponseDto("요청을 이해하지 못했습니다. 요청은 환전신청 , 환전 예약, 환율 조회에 대한 기능만 조회 가능합니다.")
                         );
@@ -91,18 +91,38 @@ public class UserChatServiceImpl implements UserChatService{
 
     // 시스템 프롬포트 작성
     private String getIntentSystemPrompt(String userRequest) {
-        String systemPrompt = String.format("""
-                사용자의 요청은 "%s"이고 , 사용자가 요청한 값에 따라서 데이터 입력해줘 설정해줘
-                환전신청 : APPLY
-                환율조회 : RETRIEVE
-                환전예약 : RESERVATION 으로 할거고, 너가 대답해줘야 할 형식은 JSON 형식으로 해줬으면 좋겠어
-                {
-                    "intent" : "APPLY" | "RETRIEVE" | "RESERVATION"
-                }
-                위와 같은 형식으로 데이터 전달해줘            
-                """, userRequest);
+        return String.format("""
+            너는 사용자의 요청을 분석해서 "의도(intent)"만 판단하는 AI야.
 
-        return systemPrompt;
+            [사용자 요청]
+            "%s"
+
+            [Intent 판단 규칙]
+            - APPLY: 지금 당장 환전을 실행해달라는 요청
+              (예: "지금 USD 환전해줘", "환전 신청할게")
+            
+            - RESERVATION: 환전을 예약하라고 명확하게 지시한 경우
+              (예: "USD 환전 예약해줘", "다음 달에 환전 예약 걸어줘")
+            
+            - RETRIEVE: 
+              - 환율 조회
+              - 환율 예측
+              - 환율 전망
+              - 환전 전에 정보나 의견을 묻는 경우
+              ❗ "예약을 하려고 하는데", "환전할까 고민중인데" 처럼
+                 실행 의도가 명확하지 않으면 반드시 RETRIEVE로 판단해.
+
+            [중요 규칙]
+            - 실제 환전 또는 예약을 **명확하게 실행하라는 표현이 없으면**
+              절대 APPLY나 RESERVATION으로 판단하지 마.
+            - 정보 조회, 예측, 의견 요청은 모두 RETRIEVE다.
+
+            [출력 형식]
+            반드시 아래 JSON 형식으로만 응답해.
+            {
+              "intent": "APPLY" | "RETRIEVE" | "RESERVATION"
+            }
+            """, userRequest);
     }
 
 }
