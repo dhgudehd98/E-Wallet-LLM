@@ -16,6 +16,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +39,7 @@ public class LlmReservationService {
      *  - 환전 예약 성공 / 실패 여부에 따라서 메세지 전송 = 실제로 GPT 응답
      */
 
-    public Flux<UserChatResponseDto> getChatCommand(UserChatRequestDto chatRequestDto, String authHeader) {
+    public Flux<UserChatResponseDto> getReservationCommand(UserChatRequestDto chatRequestDto, String authHeader) {
         return requestCommandJson(chatRequestDto) //Mono<ResRequestDto>
                 .map(response -> validateRequestDto(response)) //Mono<ValidationResult>
                 .flatMapMany(result -> { //Flux<ValidationResult>
@@ -51,7 +52,10 @@ public class LlmReservationService {
 
                     return appClientService.appClientReservation(result.getDto(), authHeader) // Mono<AppReservationResultDto>
                             .flatMapMany(reservationResult ->
-                                    Flux.just(new UserChatResponseDto(reservationResult.getMsg()))
+                                    Flux.just(
+                                            new UserChatResponseDto(reservationResult.getMsg() + "\n"),
+                                            new UserChatResponseDto(reservationResult.getData())
+                                    )
                             );
 
                 });
@@ -81,14 +85,21 @@ public class LlmReservationService {
 
         List<String> errors = new ArrayList<>();
 
+        if (resRequestDto.getStartDate() == null) {
+            LocalDate start = LocalDate.now();
+            LocalDate end = start.plusMonths(6);
+
+            resRequestDto.setStartDate(start);
+            resRequestDto.setEndDate(end);
+        }
+
         if (resRequestDto.getCurrencyKind() == null)
             errors.add("기준 통화가 없습니다.");
-        log.info("[RESERVATION REQUEST DTO CHECK] : " + resRequestDto.getExchangeKind());
 
-        if (resRequestDto.getExchangeKind() == null) {
+        if (resRequestDto.getCurrencyKind() == null) {
             errors.add("교환할 통화값이 존재하지 않습니다.");
         }
-        if ( !resRequestDto.getExchangeKind().equals("JPY") && !resRequestDto.getExchangeKind().equals("USD") && !resRequestDto.getExchangeKind().equals("EUR")){
+        if ( !resRequestDto.getCurrencyKind().equals("JPY") && !resRequestDto.getCurrencyKind().equals("USD") && !resRequestDto.getCurrencyKind().equals("EUR")){
             errors.add("입력하신 통화값으로는 환전 예약이 불가능합니다. 현재 환전예약은 JPY , USD, EUR만 환전 예약 가능합니다.");
         }
         if (resRequestDto.getInputExchangeMoney() == null)
@@ -109,17 +120,24 @@ public class LlmReservationService {
                        그리고 실제로 데이터를 반환할 때는 JSON 형식으로 반환해줘 
                        환전 예약을 요청 할 때 아래 JSON FORMAT 형태로 응답해줘.
                        변수 설명 해줄게
-                       currencyKind : 사용자가 지불 통화 , 없으면 KRW로 고정 
-                       exchangeKind : 사용자가 예약하고자하는 환율의 통화 
+                       currencyKind : 사용자가 예약하고자하는 환율의 통화 
+                       exchangeKind : 사용자가 지불 통화 , 없으면 KRW로 고정 
                        reservationRate : 사용자가 예약하고 싶은 환율 값 
                        inputExchangeMoney : 사용자가 예약하고자 하는 환율의 값 
-                       예를 들어서 , 나 10USD 1400원으로 예약 해줘 하면 currencyKind에 대한 값은 없으니 KRW , inputExchangeMoney : 10 , exchangeKind : USD 
+                       start_date : 사용자가 예약하고싶은 시작일 
+                       end_date : 예약을 걸어두고 싶은 마감일 (최대 6개월까지)
+                       
+                       시작일과 마감일은 항상 "yyyy-mm-dd"의 형태로 값을 입력해주고, 사용자가 시작일과 마감일에 대해서 입력하지 않았다면
+                       너가 스스로 날짜 계산하지말고 반드시 null 값으로 반환해서 전달해줘 
+                       예를 들어서 , 나 10USD 1400원으로 예약 해줘 하면 currencyKind에 USD , inputExchangeMoney : 10 , exchangeKind는 값이 설정 되어 있지 않으면 KRW 값으로 고정해주고, 값이 있으면 요청한 값으로 해줘 
                        {
                            intent : RESERVATION
                            currencyKind : "", 
                            exchangeKind : "",
                            inputExchangeMoney : ,
                            reservationRate : ,
+                           start_date : "yyyy-mm-dd", 
+                           end_date : "yyyy-mm-dd"
                            
                        }         
                        """, userRequest);

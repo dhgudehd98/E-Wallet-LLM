@@ -13,4 +13,5 @@ import lombok.Setter;
 public class AppReservationResultDto {
     private String result;
     private String msg;
+    private String data;
 }

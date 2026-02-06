@@ -67,7 +67,7 @@ public class UserChatServiceImpl implements UserChatService{
                 .flatMapMany(intentDto->{
                     String intent = intentDto.getIntent();
                     return switch (intent) {
-                        case "RESERVATION" -> llmReservationService.getChatCommand(userChatRequestDto, authHeader);
+                        case "RESERVATION" -> llmReservationService.getReservationCommand(userChatRequestDto, authHeader);
 //            case "EXCHANGE" -> getExchangeCommand(userChatRequestDto, authHeader);
 //            case "RETRIEVE" -> getRetrieveCommand(userChatRequestDto, authHeader);
                         default-> Flux.just(
