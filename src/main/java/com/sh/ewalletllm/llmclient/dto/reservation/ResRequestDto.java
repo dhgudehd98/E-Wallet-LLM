@@ -1,4 +1,4 @@
-package com.sh.ewalletllm.reservation.dto;
+package com.sh.ewalletllm.llmclient.dto.reservation;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

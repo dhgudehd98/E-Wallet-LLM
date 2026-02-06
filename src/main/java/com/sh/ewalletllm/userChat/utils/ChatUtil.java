@@ -1,6 +1,6 @@
 package com.sh.ewalletllm.userChat.utils;
 
-import com.sh.ewalletllm.reservation.dto.ResRequestDto;
+import com.sh.ewalletllm.llmclient.dto.reservation.ResRequestDto;
 import com.sh.ewalletllm.userChat.dto.IntentDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +28,7 @@ public class ChatUtil {
     }
 
     // 요청한 Reservation DTO에 대한 값 -> JSON 형식으로 변환
-    public  ResRequestDto parseJsonReservationDto(String llmResponse) {
+    public ResRequestDto parseJsonReservationDto(String llmResponse) {
         String jsonString = extractJsonString(llmResponse);
         try {
             return  objectMapper.readValue(jsonString, ResRequestDto.class);

@@ -4,8 +4,9 @@ import com.sh.ewalletllm.api.service.AppClientService;
 import com.sh.ewalletllm.llmclient.LlmModel;
 import com.sh.ewalletllm.llmclient.LlmType;
 import com.sh.ewalletllm.llmclient.dto.LlmChatRequestDto;
-import com.sh.ewalletllm.reservation.dto.ResRequestDto;
-import com.sh.ewalletllm.reservation.dto.ValidationResult;
+
+import com.sh.ewalletllm.llmclient.dto.reservation.ResRequestDto;
+import com.sh.ewalletllm.llmclient.dto.reservation.ReservationValidationResult;
 import com.sh.ewalletllm.userChat.dto.UserChatRequestDto;
 import com.sh.ewalletllm.userChat.dto.UserChatResponseDto;
 import com.sh.ewalletllm.userChat.utils.ChatUtil;
@@ -80,7 +81,7 @@ public class LlmReservationService {
      * - exchangeKind : 예약할 통화,
      * - inputExchangeMoney : 예약하고 싶은 환율의 필요 금액
      */
-    private ValidationResult validateRequestDto(ResRequestDto resRequestDto) {
+    private ReservationValidationResult validateRequestDto(ResRequestDto resRequestDto) {
         log.info("[Validation ResRequestDto] RequestDto : " + resRequestDto);
 
         List<String> errors = new ArrayList<>();
@@ -106,10 +107,10 @@ public class LlmReservationService {
             errors.add("예약하고 싶은 통화의 교환 금액을 입력해주세요.");
 
         if (errors.isEmpty()) {
-            return ValidationResult.success(resRequestDto);
+            return ReservationValidationResult.success(resRequestDto);
         }
 
-        return ValidationResult.fail(errors);
+        return ReservationValidationResult.fail(errors);
 
     }
 
