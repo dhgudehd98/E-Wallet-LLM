@@ -5,6 +5,7 @@ import com.sh.ewalletllm.llmclient.LlmModel;
 import com.sh.ewalletllm.llmclient.LlmType;
 import com.sh.ewalletllm.llmclient.dto.LlmChatRequestDto;
 import com.sh.ewalletllm.llmclient.dto.LlmChatResponseDto;
+import com.sh.ewalletllm.llmclient.service.LlmApplyService;
 import com.sh.ewalletllm.llmclient.service.LlmReservationService;
 import com.sh.ewalletllm.llmclient.service.LlmRetrieveService;
 import com.sh.ewalletllm.llmclient.service.LlmWebClientService;
@@ -44,6 +45,7 @@ public class UserChatServiceImpl implements UserChatService{
     private final Map<LlmType, LlmWebClientService> llmWebClientServiceMap;
     private final LlmReservationService llmReservationService;
     private final LlmRetrieveService llmRetrieveService;
+    private final LlmApplyService llmApplyService;
     private final ChatUtil chatUtil;
 
     @Override
@@ -69,7 +71,7 @@ public class UserChatServiceImpl implements UserChatService{
                     return switch (intent) {
                         case "RESERVATION" -> llmReservationService.getReservationCommand(userChatRequestDto, authHeader);
                         case "RETRIEVE" -> llmRetrieveService.getRetrieveCommand(userChatRequestDto);
-//            case "EXCHANGE" -> getExchangeCommand(userChatRequestDto, authHeader);
+                        case "EXCHANGE" -> llmApplyService.getApplyCommand(userChatRequestDto, authHeader);
                         default-> Flux.just(
                                 new UserChatResponseDto("요청을 이해하지 못했습니다. 요청은 환전신청 , 환전 예약, 환율 조회에 대한 기능만 조회 가능합니다.")
                         );

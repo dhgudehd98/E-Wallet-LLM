@@ -103,7 +103,7 @@ public class LlmRetrieveService {
     }
 
     // APP으로 실시간 환율 요청
-    private Flux<RealTimeDto> getCurrencyInfo() {
+    public Flux<RealTimeDto> getCurrencyInfo() {
         return appClientService.getCurrencyInfo();
     }
 }

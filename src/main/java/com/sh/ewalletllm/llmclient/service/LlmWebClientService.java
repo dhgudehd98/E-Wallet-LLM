@@ -20,4 +20,6 @@ public interface LlmWebClientService {
     Mono<LlmChatResponseDto> getIntentDto(LlmChatRequestDto llmChatRequestDto);
 
     Flux<LlmChatResponseDto> getRetrieveCommand(LlmChatRequestDto llmChatRequestDto);
+
+    Mono<LlmChatResponseDto> getUserRequestApplyInfo(LlmChatRequestDto llmChatRequestDto);
 }

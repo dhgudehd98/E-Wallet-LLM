@@ -126,4 +126,24 @@ public class GptWebClientService implements LlmWebClientService{
                 .map(gptResponseDto -> new LlmChatResponseDto(gptResponseDto));
     }
 
+    @Override
+    public Mono<LlmChatResponseDto> getUserRequestApplyInfo(LlmChatRequestDto llmChatRequestDto) {
+        GptRequestDto gptChatReqeustDto = new GptRequestDto(llmChatRequestDto);
+        log.info("바디 요청 데이터 화인하기 -> gptChat Request Dto : " + gptChatReqeustDto.toString());
+        return webClient.post()
+                .uri("https://api.openai.com/v1/chat/completions")
+                .header("Authorization", "Bearer " + gptApiKey)
+                .bodyValue(gptChatReqeustDto)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, (clientResponse -> {
+                    return clientResponse.bodyToMono(String.class).flatMap(body -> {
+                        log.error("Error Response : {}", body);
+                        return Mono.error(new GptErrorException("API 요청 실패 : " + body));
+                    });
+                }))
+                .bodyToMono(GptResponseDto.class)
+                .map(gptResponseDto -> new LlmChatResponseDto(gptResponseDto));
+    }
+
+
 }

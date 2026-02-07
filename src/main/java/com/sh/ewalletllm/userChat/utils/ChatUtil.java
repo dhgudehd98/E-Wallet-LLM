@@ -1,5 +1,7 @@
 package com.sh.ewalletllm.userChat.utils;
 
+import com.sh.ewalletllm.llmclient.dto.Apply.UserApplyInfoDto;
+import com.sh.ewalletllm.llmclient.dto.LlmChatResponseDto;
 import com.sh.ewalletllm.llmclient.dto.reservation.ResRequestDto;
 import com.sh.ewalletllm.userChat.dto.IntentDto;
 import lombok.RequiredArgsConstructor;
@@ -53,4 +55,12 @@ public class ChatUtil {
     }
 
 
+    public UserApplyInfoDto parseUserApplyInfoDto(String llmResponse) {
+        String jsonString = extractJsonString(llmResponse);
+        try {
+            return  objectMapper.readValue(jsonString, UserApplyInfoDto.class);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("[LLM Reservation Parssing error] : String -> ResRequestDto Parsing Failed");
+        }
+    }
 }
