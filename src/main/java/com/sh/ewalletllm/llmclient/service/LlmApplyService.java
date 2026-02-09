@@ -42,7 +42,10 @@ public class LlmApplyService {
         return getUserRequestApplyInfo(userChatRequestDto) // Mono<UserApplyInfoDto>
                 .flatMap(userApplyInfoDto -> appClientService.appClientApply(userApplyInfoDto, authHeader)) // Mono<AppApplyResultDto>
                 .flatMapMany(appApplyResultDto ->
-                        Flux.just(new UserChatResponseDto(appApplyResultDto.getMsg())));
+                        Flux.just(
+                                new UserChatResponseDto(appApplyResultDto.getMsg() + "\n"),
+                                new UserChatResponseDto(appApplyResultDto.getData())
+                        ));
 
     }
 
@@ -61,25 +64,55 @@ public class LlmApplyService {
 
     private String getUserRequestApplyPrompt(String userRequest) {
         return String.format("""
-            너는 사용자의 환전 신청 요청에서
-            "환전 실행에 필요한 정보만" 추출하는 AI야.
+        너는 사용자의 환전 신청 요청에서
+        **환전 실행에 필요한 값만 추출하는 AI**야.
+        계산이나 판단은 하지 말고, 요청에 포함된 정보만 구조화해.
 
-            [사용자 요청]
-            "%s"
+        [사용자 요청]
+        "%s"
 
-            [추출 규칙]
-            - 통화 코드는 ISO-4217 형식 (USD, EUR, JPY)
-            - 환전 금액은 숫자만 추출
-            - 명확하지 않으면 null로 반환
-            - 추측하지 마
-            - 사용자가 환전신청 할때 목표금액 즉 , 1500원에 환율해줘 이런 값이 있으면 currencyRequest에 넣어줘, 만약에 없으면 null 값으로 넣어줘
+        [추출 규칙]
+        - 통화 코드는 ISO-4217 형식 (USD, EUR, JPY)
+        - 환전 금액은 숫자만 추출
+        - 명확하지 않으면 통화에 대한 값은 null 값으로 반환하고, 환율에 대한 값은 0.0값으로 반환
+        - 추측하지
 
-            [출력 형식]
-            반드시 아래 JSON 형식으로만 응답해.
-            {
-              "currency": "USD" | "EUR" | "JPY" | null,
-              "amount": number | null
-            }
-            """, userRequest);
+        [필드 설명]
+        - currencyKind: 기준 통화
+          · 사용자가 기준 통화를 명시하지 않으면 "KRW"로 설정해.
+        - currencyRate: 기준 통화의 환율 값
+          · 계산하지 말고 항상 0.0으로 둬.
+        - exchangeKind: 교환하려는 통화
+        - exchangeRate: 교환 하려는 통화의 환율 값
+            · 계산하지 말고 항상 0.0으로 둬.
+        - inputExchangeMoney: 교환하려는 통화의 금액
+        - needCurrencyMoney: 계산 값이므로 항상 0 값으로 설정
+
+        [예시]
+        1) 사용자 요청: "10 USD 환전 신청해줘"
+           → currencyKind: "KRW"
+             currencyRate: 0.0
+             exchangeKind: "USD"
+             exchangeRate: 0.0
+             inputExchangeMoney: 10
+
+        2) 사용자 요청: "10 USD를 EUR로 환전을 해줘"
+           → currencyKind: "EUR"
+             currencyRate: 0.0
+             exchangeKind: "USD"
+             exchangeRate: 0.0
+             inputExchangeMoney: 10
+
+        [출력 형식]
+        반드시 아래 JSON 형식으로만 응답해.
+        {
+          "currencyKind": "KRW" | "USD" | "EUR" | "JPY",
+          "currencyRate": 0.0,
+          "exchangeKind": "USD" | "EUR" | "JPY" | null,
+          "exchangeRate": 0.0,
+          "inputExchangeMoney": number | null,
+          "needCurrencyMoney": 0
+        }
+        """, userRequest);
     }
 }

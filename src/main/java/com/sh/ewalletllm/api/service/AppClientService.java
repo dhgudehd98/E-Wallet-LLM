@@ -47,7 +47,7 @@ public class AppClientService {
 
     public Mono<AppApplyResultDto> appClientApply(UserApplyInfoDto userApplyInfoDto, String authHeader) {
         return webClient.post()
-                .uri("http://localhost:8080/currency/reservation")
+                .uri("http://localhost:8080/currency/apply")
                 .header(HttpHeaders.AUTHORIZATION, authHeader)
                 .bodyValue(userApplyInfoDto)
                 .retrieve()

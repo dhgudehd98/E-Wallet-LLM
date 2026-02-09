@@ -12,6 +12,12 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @NoArgsConstructor
 public class UserApplyInfoDto {
-    private String currency;
-    private Long amount;
+    String currencyKind; // 기준 환율 종류
+    double currencyRate; // 기준 환율
+
+    String exchangeKind; // 교환할 환율 종류
+    double exchangeRate; // 기준 환율
+
+    Long inputExchangeMoney; // 교환 환율 금액
+    Long needCurrencyMoney; // 필요 금액
 }
