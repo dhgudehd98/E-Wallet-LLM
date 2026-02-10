@@ -25,7 +25,7 @@ jobs:
 
       - name: Build & Push LLM Image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/ewallet-llm:latest ./llm-app
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/ewallet-llm:latest ./e-wallet-app
           docker push ${{ secrets.DOCKER_USERNAME }}/ewallet-llm:latest
 
       - name: Deploy to EC2 (LLM)
