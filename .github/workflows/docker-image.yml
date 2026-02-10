@@ -29,15 +29,14 @@ jobs:
 
       - name: Build WebFlux LLM (skip test)
         run: ./gradlew clean build -x test
-        working-directory: ./llm-app
+        working-directory: .
 
       - name: Docker build and publish (LLM)
         run: |
           docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
           docker build -t ${{ secrets.DOCKER_USERNAME }}/ewallet-llm:latest .
           docker push ${{ secrets.DOCKER_USERNAME }}/ewallet-llm:latest
-        working-directory: ./llm-app
-
+        working-directory: .
   deploy:
     needs: build
     runs-on: ubuntu-latest
