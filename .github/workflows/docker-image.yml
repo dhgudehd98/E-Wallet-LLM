@@ -25,7 +25,7 @@ jobs:
 
       - name: Grant permission for gradlew
         run: chmod +x ./gradlew
-        working-directory: ./E-Wallet-LLM
+        working-directory: .
 
       - name: Build WebFlux LLM (skip test)
         run: ./gradlew clean build -x test
