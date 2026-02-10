@@ -2,10 +2,10 @@ name: LLM WebFlux Docker Image CI
 
 on:
   push:
-    branches: [ "develop" ]
+    branches: [ "main" ]
   pull_request_target:
     branches:
-      - develop
+      - main
     types:
       - closed
 
