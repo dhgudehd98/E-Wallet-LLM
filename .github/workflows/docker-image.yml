@@ -1,0 +1,42 @@
+name: LLM WebFlux Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request_target:
+    branches:
+      - main
+    types:
+      - closed
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build & Push LLM Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/ewallet-llm:latest ./llm-app
+          docker push ${{ secrets.DOCKER_USERNAME }}/ewallet-llm:latest
+
+      - name: Deploy to EC2 (LLM)
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ubuntu
+          key: ${{ secrets.AWS_SSH_KEY }}
+          port: 22
+          script: |
+            cd /home/ubuntu/.ssh/E-Wallet/Wallet
+            sudo docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+            sudo docker compose pull llm-app
+            sudo docker compose up -d llm-app
