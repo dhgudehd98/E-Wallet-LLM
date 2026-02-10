@@ -38,9 +38,10 @@ public class AppClientService {
                 .bodyToMono(AppReservationResultDto.class);
     }
 
-    public Flux<RealTimeDto> getCurrencyInfo() {
+    public Flux<RealTimeDto> getCurrencyInfo(String authHeader) {
         return webClient.get()
                 .uri("https://wallete.shop/llm/currencyInfo")
+                .header(HttpHeaders.AUTHORIZATION, authHeader)
                 .retrieve()
                 .bodyToFlux(RealTimeDto.class);
     }

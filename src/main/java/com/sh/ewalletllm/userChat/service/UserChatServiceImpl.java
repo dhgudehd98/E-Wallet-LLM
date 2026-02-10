@@ -70,7 +70,7 @@ public class UserChatServiceImpl implements UserChatService{
                     String intent = intentDto.getIntent();
                     return switch (intent) {
                         case "RESERVATION" -> llmReservationService.getReservationCommand(userChatRequestDto, authHeader);
-                        case "RETRIEVE" -> llmRetrieveService.getRetrieveCommand(userChatRequestDto);
+                        case "RETRIEVE" -> llmRetrieveService.getRetrieveCommand(userChatRequestDto, authHeader);
                         case "APPLY" -> llmApplyService.getApplyCommand(userChatRequestDto, authHeader);
                         default-> Flux.just(
                                 new UserChatResponseDto("요청을 이해하지 못했습니다. 요청은 환전신청 , 환전 예약, 환율 조회에 대한 기능만 조회 가능합니다.")

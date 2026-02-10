@@ -36,8 +36,8 @@ public class LlmRetrieveService {
      * @return
      */
 
-    public Flux<UserChatResponseDto> getRetrieveCommand(UserChatRequestDto userChatRequestDto) {
-        return getCurrencyInfo()
+    public Flux<UserChatResponseDto> getRetrieveCommand(UserChatRequestDto userChatRequestDto, String authHeader) {
+        return getCurrencyInfo(authHeader)
                 .collectList()
                 .flatMapMany(
                         realTimeDtoList -> sendCurrencyInfoToAi(userChatRequestDto, realTimeDtoList)
@@ -103,7 +103,7 @@ public class LlmRetrieveService {
     }
 
     // APP으로 실시간 환율 요청
-    public Flux<RealTimeDto> getCurrencyInfo() {
-        return appClientService.getCurrencyInfo();
+    public Flux<RealTimeDto> getCurrencyInfo(String authHeader) {
+        return appClientService.getCurrencyInfo(authHeader);
     }
 }
