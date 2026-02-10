@@ -31,7 +31,7 @@ public class AppClientService {
             String authHeader
     ) {
         return webClient.post()
-                .uri("http://localhost:8080/currency/reservation")
+                .uri("https://wallete.shop/currency/reservation")
                 .header(HttpHeaders.AUTHORIZATION, authHeader)
                 .bodyValue(resRequestDto)
                 .retrieve()
@@ -40,7 +40,7 @@ public class AppClientService {
 
     public Flux<RealTimeDto> getCurrencyInfo() {
         return webClient.get()
-                .uri("http://localhost:8080/llm/currencyInfo")
+                .uri("https://wallete.shop/llm/currencyInfo")
                 .retrieve()
                 .bodyToFlux(RealTimeDto.class);
     }
