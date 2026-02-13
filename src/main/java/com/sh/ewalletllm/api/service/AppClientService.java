@@ -31,7 +31,8 @@ public class AppClientService {
             String authHeader
     ) {
         return webClient.post()
-                .uri("https://wallete.shop/currency/reservation")
+                .uri("http://localhost:8080/currency/reservation")
+//                .uri("https://wallete.shop/currency/reservation")
                 .header(HttpHeaders.AUTHORIZATION, authHeader)
                 .bodyValue(resRequestDto)
                 .retrieve()
@@ -40,7 +41,8 @@ public class AppClientService {
 
     public Flux<RealTimeDto> getCurrencyInfo(String authHeader) {
         return webClient.get()
-                .uri("https://wallete.shop/llm/currencyInfo")
+                .uri("http://localhost:8080/llm/currencyInfo")
+//                .uri("https://wallete.shop/llm/currencyInfo")
                 .header(HttpHeaders.AUTHORIZATION, authHeader)
                 .retrieve()
                 .bodyToFlux(RealTimeDto.class);
@@ -48,7 +50,8 @@ public class AppClientService {
 
     public Mono<AppApplyResultDto> appClientApply(UserApplyInfoDto userApplyInfoDto, String authHeader) {
         return webClient.post()
-                .uri("https://wallete.shop/currency/apply")
+                .uri("http://localhost:8080/currency/apply")
+//                .uri("https://wallete.shop/currency/apply")
                 .header(HttpHeaders.AUTHORIZATION, authHeader)
                 .bodyValue(userApplyInfoDto)
                 .retrieve()
