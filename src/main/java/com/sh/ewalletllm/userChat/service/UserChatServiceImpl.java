@@ -1,14 +1,17 @@
 package com.sh.ewalletllm.userChat.service;
 
 import com.sh.ewalletllm.api.service.AppClientService;
+import com.sh.ewalletllm.chathistory.service.UserChatHistoryService;
 import com.sh.ewalletllm.llmclient.LlmModel;
 import com.sh.ewalletllm.llmclient.LlmType;
 import com.sh.ewalletllm.llmclient.dto.LlmChatRequestDto;
 import com.sh.ewalletllm.llmclient.dto.LlmChatResponseDto;
+import com.sh.ewalletllm.llmclient.dto.gpt.request.GptMessageRole;
 import com.sh.ewalletllm.llmclient.service.LlmApplyService;
 import com.sh.ewalletllm.llmclient.service.LlmReservationService;
 import com.sh.ewalletllm.llmclient.service.LlmRetrieveService;
 import com.sh.ewalletllm.llmclient.service.LlmWebClientService;
+import com.sh.ewalletllm.redis.ChatMessageDto;
 import com.sh.ewalletllm.userChat.dto.IntentDto;
 import com.sh.ewalletllm.userChat.dto.UserChatRequestDto;
 import com.sh.ewalletllm.userChat.dto.UserChatResponseDto;
@@ -47,6 +50,7 @@ public class UserChatServiceImpl implements UserChatService{
     private final LlmRetrieveService llmRetrieveService;
     private final LlmApplyService llmApplyService;
     private final ChatUtil chatUtil;
+    private final UserChatHistoryService userChatHistoryService;
 
     @Override
     public Flux<UserChatResponseDto> getChatStream(UserChatRequestDto chatRequestDto) {
@@ -65,18 +69,26 @@ public class UserChatServiceImpl implements UserChatService{
      */
     @Override
     public Flux<UserChatResponseDto> getChatIntent(UserChatRequestDto userChatRequestDto, String authHeader) {
-        return getIntentJson(userChatRequestDto)
+        Long memberId = 102L;
+
+        Mono<Long> saveUser = userChatHistoryService.saveMessage(memberId, new ChatMessageDto(userChatRequestDto));
+        return saveUser.then(getIntentJson(userChatRequestDto))
                 .flatMapMany(intentDto->{
                     String intent = intentDto.getIntent();
-                    return switch (intent) {
+
+                    Flux<UserChatResponseDto> result = switch (intent) {
                         case "RESERVATION" -> llmReservationService.getReservationCommand(userChatRequestDto, authHeader);
                         case "RETRIEVE" -> llmRetrieveService.getRetrieveCommand(userChatRequestDto, authHeader);
                         case "APPLY" -> llmApplyService.getApplyCommand(userChatRequestDto, authHeader);
-                        default-> Flux.just(
-                                new UserChatResponseDto("요청을 이해하지 못했습니다. 요청은 환전신청 , 환전 예약, 환율 조회에 대한 기능만 조회 가능합니다.")
-                        );
-
+                        default -> Flux.just(new UserChatResponseDto("요청을 이해하지 못했습니다."));
                     };
+
+                    return result.flatMap(response ->
+                            userChatHistoryService.saveMessage(memberId,
+                                            new ChatMessageDto(GptMessageRole.ASSISTANT, response.getResponse(), System.currentTimeMillis()))
+                                    .thenReturn(response)
+                    );
+
                 });
     }
 
