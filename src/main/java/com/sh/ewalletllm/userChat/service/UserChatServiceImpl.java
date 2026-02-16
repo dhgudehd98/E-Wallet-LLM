@@ -7,10 +7,7 @@ import com.sh.ewalletllm.llmclient.LlmType;
 import com.sh.ewalletllm.llmclient.dto.LlmChatRequestDto;
 import com.sh.ewalletllm.llmclient.dto.LlmChatResponseDto;
 import com.sh.ewalletllm.llmclient.dto.gpt.request.GptMessageRole;
-import com.sh.ewalletllm.llmclient.service.LlmApplyService;
-import com.sh.ewalletllm.llmclient.service.LlmReservationService;
-import com.sh.ewalletllm.llmclient.service.LlmRetrieveService;
-import com.sh.ewalletllm.llmclient.service.LlmWebClientService;
+import com.sh.ewalletllm.llmclient.service.*;
 import com.sh.ewalletllm.redis.ChatMessageDto;
 import com.sh.ewalletllm.userChat.dto.IntentDto;
 import com.sh.ewalletllm.userChat.dto.UserChatRequestDto;
@@ -51,6 +48,7 @@ public class UserChatServiceImpl implements UserChatService{
     private final LlmApplyService llmApplyService;
     private final ChatUtil chatUtil;
     private final UserChatHistoryService userChatHistoryService;
+    private final LlmHistoryService llmHistoryService;
 
     @Override
     public Flux<UserChatResponseDto> getChatStream(UserChatRequestDto chatRequestDto) {
@@ -71,32 +69,35 @@ public class UserChatServiceImpl implements UserChatService{
     public Flux<UserChatResponseDto> getChatIntent(UserChatRequestDto userChatRequestDto, String authHeader) {
         Long memberId = 102L;
 
-        Mono<Long> saveUser = userChatHistoryService.saveMessage(memberId, new ChatMessageDto(userChatRequestDto));
-        return saveUser.then(getIntentJson(userChatRequestDto))
-                .flatMapMany(intentDto->{
-                    String intent = intentDto.getIntent();
+        return userChatHistoryService.saveMessage(memberId, new ChatMessageDto(userChatRequestDto))
+                .then(userChatHistoryService.getRecentHistory(memberId).collectList())
+                .flatMapMany(historyList -> {
+                    return getIntentJson(userChatRequestDto, historyList)
+                            .flatMapMany(intentDto -> {
+                                String intent = intentDto.getIntent();
 
-                    Flux<UserChatResponseDto> result = switch (intent) {
-                        case "RESERVATION" -> llmReservationService.getReservationCommand(userChatRequestDto, authHeader);
-                        case "RETRIEVE" -> llmRetrieveService.getRetrieveCommand(userChatRequestDto, authHeader);
-                        case "APPLY" -> llmApplyService.getApplyCommand(userChatRequestDto, authHeader);
-                        default -> Flux.just(new UserChatResponseDto("요청을 이해하지 못했습니다."));
-                    };
+                                Flux<UserChatResponseDto> result = switch (intent) {
+                                    case "RESERVATION" -> llmReservationService.getReservationCommand(userChatRequestDto, authHeader);
+                                    case "RETRIEVE" -> llmRetrieveService.getRetrieveCommand(userChatRequestDto, authHeader);
+                                    case "APPLY" -> llmApplyService.getApplyCommand(userChatRequestDto, authHeader);
+                                    default -> Flux.just(new UserChatResponseDto("요청을 이해하지 못했습니다."));
+                                };
 
-                    return result.flatMap(response ->
-                            userChatHistoryService.saveMessage(memberId,
-                                            new ChatMessageDto(GptMessageRole.ASSISTANT, response.getResponse(), System.currentTimeMillis()))
-                                    .thenReturn(response)
-                    );
-
+                                return result.concatMap(response ->  // ✅ flatMap -> concatMap
+                                        userChatHistoryService.saveMessage(memberId,
+                                                        new ChatMessageDto(GptMessageRole.ASSISTANT, response.getResponse(), System.currentTimeMillis()))
+                                                .thenReturn(response)
+                                );
+                            });
                 });
     }
 
-    private Mono<IntentDto> getIntentJson(UserChatRequestDto userChatRequestDto) {
+    // ✅ historyList를 파라미터로 받도록 변경
+    private Mono<IntentDto> getIntentJson(UserChatRequestDto userChatRequestDto, List<ChatMessageDto> historyList) {
         String systemPrompt = getIntentSystemPrompt(userChatRequestDto.getRequest());
         LlmModel llmModel = userChatRequestDto.getLlmModel();
 
-        LlmChatRequestDto llmChatRequestDto = new LlmChatRequestDto(userChatRequestDto, systemPrompt);
+        LlmChatRequestDto llmChatRequestDto = new LlmChatRequestDto(userChatRequestDto, systemPrompt, historyList);
         LlmWebClientService llmWebClientService = llmWebClientServiceMap.get(llmModel.getLlmType());
         return llmWebClientService.getIntentDto(llmChatRequestDto)
                 .map(responseDto -> chatUtil.parseJsonIntentDto(responseDto.getLlmResponse()));
@@ -130,6 +131,15 @@ public class UserChatServiceImpl implements UserChatService{
             - 실제 환전 또는 예약을 **명확하게 실행하라는 표현이 없으면**
               절대 APPLY나 RESERVATION으로 판단하지 마.
             - 정보 조회, 예측, 의견 요청은 모두 RETRIEVE다.
+            
+            [중요: 이전 대화 맥락 고려]
+            - 이전 대화 히스토리가 있으면 반드시 맥락을 고려해서 판단해.
+            - AI가 정보를 요청한 상황에서 사용자가 값을 답하는 경우,
+              이전 대화의 intent를 이어받아 판단해.
+            user: 10USD 환전 예약해줘
+            assistant: 환전 예약 금액을 얼마로 설정하시겠어요?
+            user: 1400원   ← 이 경우 RESERVATION으로 판단 ✅
+                            
 
             [출력 형식]
             반드시 아래 JSON 형식으로만 응답해.

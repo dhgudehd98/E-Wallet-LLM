@@ -2,11 +2,13 @@ package com.sh.ewalletllm.llmclient.service;
 
 
 import com.sh.ewalletllm.api.service.AppClientService;
+import com.sh.ewalletllm.chathistory.service.UserChatHistoryService;
 import com.sh.ewalletllm.llmclient.LlmModel;
 import com.sh.ewalletllm.llmclient.LlmType;
 import com.sh.ewalletllm.llmclient.dto.LlmChatRequestDto;
 import com.sh.ewalletllm.llmclient.dto.LlmChatResponseDto;
 import com.sh.ewalletllm.llmclient.dto.retrieve.RealTimeDto;
+import com.sh.ewalletllm.redis.ChatMessageDto;
 import com.sh.ewalletllm.userChat.dto.UserChatRequestDto;
 import com.sh.ewalletllm.userChat.dto.UserChatResponseDto;
 import com.sh.ewalletllm.userChat.utils.ChatUtil;
@@ -27,37 +29,35 @@ public class LlmRetrieveService {
     private final Map<LlmType, LlmWebClientService> llmWebClientServiceMap;
     private final ChatUtil chatUtil;
     private final AppClientService appClientService;
-
-    /**
-     * 환율 조회에 대한 과정
-     * 1. 실제 환율을 서버에서 받아온다. -> APPCLIENTSERVICE 쪽에서
-     * 2. 받아온 환율 데이터를 통해서 AI한테 전달하고, GPT의 응답에 가져오기
-     * @param userChatRequestDto
-     * @return
-     */
+    private final UserChatHistoryService userChatHistoryService; // ✅ 추가
 
     public Flux<UserChatResponseDto> getRetrieveCommand(UserChatRequestDto userChatRequestDto, String authHeader) {
+        Long memberId = 102L;
+
         return getCurrencyInfo(authHeader)
                 .collectList()
-                .flatMapMany(
-                        realTimeDtoList -> sendCurrencyInfoToAi(userChatRequestDto, realTimeDtoList)
-                ).map(
-                        llmResponse -> new UserChatResponseDto(llmResponse.getLlmResponse())
-                );
-
+                .zipWith(userChatHistoryService.getRecentHistory(memberId).collectList()) // ✅ 환율정보 + 히스토리 동시에 가져오기
+                .flatMapMany(tuple -> {
+                    List<RealTimeDto> realTimeDtoList = tuple.getT1();
+                    List<ChatMessageDto> historyList = tuple.getT2();
+                    return sendCurrencyInfoToAi(userChatRequestDto, realTimeDtoList, historyList); // ✅ 히스토리 전달
+                })
+                .map(llmResponse -> new UserChatResponseDto(llmResponse.getLlmResponse()));
     }
 
-    private Flux<LlmChatResponseDto> sendCurrencyInfoToAi(UserChatRequestDto userChatRequestDto, List<RealTimeDto> realTimeDtoList) {
+    private Flux<LlmChatResponseDto> sendCurrencyInfoToAi(UserChatRequestDto userChatRequestDto, List<RealTimeDto> realTimeDtoList, List<ChatMessageDto> historyList) {
         String userRequest = userChatRequestDto.getRequest();
         String systemPrompt = retrieveSystemPrompt(userRequest, realTimeDtoList);
         LlmModel llmModel = userChatRequestDto.getLlmModel();
 
-        LlmChatRequestDto llmChatRequestDto = new LlmChatRequestDto(userChatRequestDto, systemPrompt);
+        LlmChatRequestDto llmChatRequestDto = new LlmChatRequestDto(userChatRequestDto, systemPrompt, historyList); // ✅ 히스토리 포함
         LlmWebClientService llmWebClientService = llmWebClientServiceMap.get(llmModel.getLlmType());
 
         return llmWebClientService.getRetrieveCommand(llmChatRequestDto);
-
     }
+
+    // retrieveSystemPrompt, getCurrencyInfo 는 그대로 유지
+
 
     private String retrieveSystemPrompt(String userRequest, List<RealTimeDto> realTimeDtos) {
 
@@ -93,6 +93,7 @@ public class LlmRetrieveService {
             3. 데이터에 없는 내용은 절대 추측하지 마.
             4. 답변은 이해하기 쉽게 자연어로 작성해.
             5. 그리고 답변 할 때 말투는 친절하게 답변해줬으면 좋겠어 너무 딱딱하게 말고
+            6. 이전에 요청한 값이 있으면 그거에 맞춰서 전달해줘
 
             [실시간 환율 데이터]
             %s
