@@ -22,4 +22,6 @@ public interface LlmWebClientService {
     Flux<LlmChatResponseDto> getRetrieveCommand(LlmChatRequestDto llmChatRequestDto);
 
     Mono<LlmChatResponseDto> getUserRequestApplyInfo(LlmChatRequestDto llmChatRequestDto);
+
+    Mono<LlmChatResponseDto> getHisotryCommand(LlmChatRequestDto llmChatRequestDto);
 }

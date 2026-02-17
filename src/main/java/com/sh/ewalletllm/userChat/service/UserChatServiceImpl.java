@@ -80,6 +80,7 @@ public class UserChatServiceImpl implements UserChatService{
                                     case "RESERVATION" -> llmReservationService.getReservationCommand(userChatRequestDto, authHeader);
                                     case "RETRIEVE" -> llmRetrieveService.getRetrieveCommand(userChatRequestDto, authHeader);
                                     case "APPLY" -> llmApplyService.getApplyCommand(userChatRequestDto, authHeader);
+                                    case "HISTORY" -> llmHistoryService.getHistoryCommand(userChatRequestDto, authHeader);
                                     default -> Flux.just(new UserChatResponseDto("요청을 이해하지 못했습니다."));
                                 };
 
@@ -144,7 +145,7 @@ public class UserChatServiceImpl implements UserChatService{
             [출력 형식]
             반드시 아래 JSON 형식으로만 응답해.
             {
-              "intent": "APPLY" | "RETRIEVE" | "RESERVATION"
+              "intent": "APPLY" | "RETRIEVE" | "RESERVATION" | "HISTORY"
             }
             """, userRequest);
     }
