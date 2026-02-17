@@ -29,18 +29,18 @@ public class LlmRetrieveService {
     private final Map<LlmType, LlmWebClientService> llmWebClientServiceMap;
     private final ChatUtil chatUtil;
     private final AppClientService appClientService;
-    private final UserChatHistoryService userChatHistoryService; // ✅ 추가
+    private final UserChatHistoryService userChatHistoryService;
 
     public Flux<UserChatResponseDto> getRetrieveCommand(UserChatRequestDto userChatRequestDto, String authHeader) {
         Long memberId = 102L;
 
         return getCurrencyInfo(authHeader)
                 .collectList()
-                .zipWith(userChatHistoryService.getRecentHistory(memberId).collectList()) // ✅ 환율정보 + 히스토리 동시에 가져오기
+                .zipWith(userChatHistoryService.getRecentHistory(memberId).collectList())
                 .flatMapMany(tuple -> {
                     List<RealTimeDto> realTimeDtoList = tuple.getT1();
                     List<ChatMessageDto> historyList = tuple.getT2();
-                    return sendCurrencyInfoToAi(userChatRequestDto, realTimeDtoList, historyList); // ✅ 히스토리 전달
+                    return sendCurrencyInfoToAi(userChatRequestDto, realTimeDtoList, historyList);
                 })
                 .map(llmResponse -> new UserChatResponseDto(llmResponse.getLlmResponse()));
     }
@@ -50,7 +50,8 @@ public class LlmRetrieveService {
         String systemPrompt = retrieveSystemPrompt(userRequest, realTimeDtoList);
         LlmModel llmModel = userChatRequestDto.getLlmModel();
 
-        LlmChatRequestDto llmChatRequestDto = new LlmChatRequestDto(userChatRequestDto, systemPrompt, historyList); // ✅ 히스토리 포함
+        // 이 전에 history 내역 포함해서 llmChatRequestDto 객체 생성
+        LlmChatRequestDto llmChatRequestDto = new LlmChatRequestDto(userChatRequestDto, systemPrompt, historyList);
         LlmWebClientService llmWebClientService = llmWebClientServiceMap.get(llmModel.getLlmType());
 
         return llmWebClientService.getRetrieveCommand(llmChatRequestDto);

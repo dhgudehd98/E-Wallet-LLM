@@ -1,6 +1,7 @@
 package com.sh.ewalletllm.llmclient.service;
 
 import com.sh.ewalletllm.api.service.AppClientService;
+import com.sh.ewalletllm.chathistory.service.UserChatHistoryService;
 import com.sh.ewalletllm.llmclient.LlmModel;
 import com.sh.ewalletllm.llmclient.LlmType;
 import com.sh.ewalletllm.llmclient.dto.LlmChatRequestDto;
@@ -30,6 +31,9 @@ public class LlmReservationService {
     private final AppClientService appClientService;
     private final Map<LlmType, LlmWebClientService> llmWebClientServiceMap;
     private final ChatUtil chatUtil;
+    private final UserChatHistoryService userChatHistoryService;
+
+
     /**
      * OPEN AI 통신 구조
      * 1. 사용자 요청에 맞게 AI 요청 -> AI 응답은 -> JSON 형태로 변환
@@ -68,10 +72,22 @@ public class LlmReservationService {
         String systemPrompt = reservationBuildSystemPrompt(userChatRequestDto.getRequest());
         LlmModel llmModel = userChatRequestDto.getLlmModel();
 
-        LlmChatRequestDto llmChatRequestDto = new LlmChatRequestDto(userChatRequestDto, systemPrompt);
-        LlmWebClientService llmWebClientService = llmWebClientServiceMap.get(llmModel.getLlmType());
-        return llmWebClientService.getCommandResRequestDto(llmChatRequestDto)
-                .map(response -> chatUtil.parseJsonReservationDto(response.getLlmResponse()));
+        //! 여기는 나중에 authHeader에 대한 값으로 변경
+        Long memberId = 102L;
+        return userChatHistoryService.getRecentHistory(memberId)
+                .collectList()
+                .flatMap(historyList -> {
+                    LlmChatRequestDto llmChatRequestDto = new LlmChatRequestDto(
+                            userChatRequestDto,
+                            systemPrompt,
+                            historyList
+                    );
+
+                    LlmWebClientService llmWebClientService = llmWebClientServiceMap.get(llmModel.getLlmType());
+                    return llmWebClientService.getCommandResRequestDto(llmChatRequestDto)
+                            .map(responseDto -> chatUtil.parseJsonReservationDto(responseDto.getLlmResponse()));
+
+                });
     }
 
     /**
@@ -115,35 +131,48 @@ public class LlmReservationService {
     }
 
     private String reservationBuildSystemPrompt(String userRequest) {
-        String commandSystemPrompt = String.format("""
-                       너는 환전과 관련된 작업을 실행해주는 AI야.
-                       사용자의 요청은 "%s" 이고, 
-                       그리고 실제로 데이터를 반환할 때는 JSON 형식으로 반환해줘 
-                       환전 예약을 요청 할 때 아래 JSON FORMAT 형태로 응답해줘.
-                       변수 설명 해줄게
-                       currencyKind : 사용자가 예약하고자하는 환율의 통화 
-                       exchangeKind : 사용자가 지불 통화 , 없으면 KRW로 고정 
-                       reservationRate : 사용자가 예약하고 싶은 환율 값 
-                       inputExchangeMoney : 사용자가 예약하고자 하는 환율의 값 
-                       start_date : 사용자가 예약하고싶은 시작일 
-                       end_date : 예약을 걸어두고 싶은 마감일 (최대 6개월까지)
-                       
-                       시작일과 마감일은 항상 "yyyy-mm-dd"의 형태로 값을 입력해주고, 사용자가 시작일과 마감일에 대해서 입력하지 않았다면
-                       너가 스스로 날짜 계산하지말고 반드시 null 값으로 반환해서 전달해줘 
-                       예를 들어서 , 나 10USD 1400원으로 예약 해줘 하면 currencyKind에 USD , inputExchangeMoney : 10 , exchangeKind는 값이 설정 되어 있지 않으면 KRW 값으로 고정해주고, 값이 있으면 요청한 값으로 해줘 
-                       {
-                           intent : RESERVATION
-                           currencyKind : "", 
-                           exchangeKind : "",
-                           inputExchangeMoney : ,
-                           reservationRate : ,
-                           start_date : "yyyy-mm-dd", 
-                           end_date : "yyyy-mm-dd"
-                           
-                       }         
-                       """, userRequest);
-
-        return commandSystemPrompt;
+        return String.format("""
+        너는 환전 예약을 실행해주는 AI야.
+        
+        [사용자 요청]
+        "%s"
+        
+        [중요: 이전 대화 맥락 활용]
+        - 이전 대화 히스토리가 있으면 반드시 참고해서 누락된 값을 채워줘.
+        - 예시:
+          user: 14USD 환전 예약해줘
+          assistant: 얼마에 예약할까요?
+          user: 1400원
+          → currencyKind: USD, inputExchangeMoney: 14, reservationRate: 1400 으로 판단 ✅
+        
+        [값이 부족할 때 규칙]
+        - 히스토리를 참고해도 필요한 값이 없으면 사용자에게 되물어봐.
+        - 단, 되물어볼 때는 JSON이 아닌 자연어로 질문해줘.
+        - 예: "환전 예약 환율을 얼마로 설정할까요?"
+        
+        [모든 값이 있을 때 규칙]
+        - 아래 JSON 형식으로만 응답해.
+        - currencyKind: 예약하고자 하는 환율의 통화
+        - exchangeKind: 지불 통화, 없으면 KRW로 고정
+        - reservationRate: 예약하고 싶은 환율 값
+        - inputExchangeMoney: 예약하고자 하는 환전 금액
+        - start_date: 예약 시작일 (yyyy-MM-dd), 사용자가 말 안하면 null
+        - end_date: 예약 마감일 (yyyy-MM-dd, 최대 6개월), 사용자가 말 안하면 null
+        
+        {
+            "intent": "RESERVATION",
+            "currencyKind": "",
+            "exchangeKind": "",
+            "inputExchangeMoney": ,
+            "reservationRate": ,
+            "start_date": "yyyy-MM-dd",
+            "end_date": "yyyy-MM-dd"
+        }
+        
+        [주의]
+        - 날짜는 절대 스스로 계산하지 마. 사용자가 말 안하면 반드시 null로 반환해.
+        - JSON 응답 시 다른 텍스트 절대 포함하지 마.
+        """, userRequest);
     }
 
 }

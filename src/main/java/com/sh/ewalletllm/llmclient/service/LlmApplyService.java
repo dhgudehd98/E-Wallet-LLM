@@ -1,6 +1,7 @@
 package com.sh.ewalletllm.llmclient.service;
 
 import com.sh.ewalletllm.api.service.AppClientService;
+import com.sh.ewalletllm.chathistory.service.UserChatHistoryService;
 import com.sh.ewalletllm.llmclient.LlmModel;
 import com.sh.ewalletllm.llmclient.LlmType;
 import com.sh.ewalletllm.llmclient.dto.Apply.UserApplyInfoDto;
@@ -28,7 +29,7 @@ public class LlmApplyService {
     private final Map<LlmType, LlmWebClientService> llmWebClientServiceMap;
     private final ChatUtil chatUtil;
     private final AppClientService appClientService;
-    private final LlmRetrieveService llmRetrieveService;
+    private final UserChatHistoryService userChatHistoryService;
 
     /**
      * 환전 신청 플로우 구성
@@ -54,11 +55,24 @@ public class LlmApplyService {
         String systemPrompt = getUserRequestApplyPrompt(userRequest);
         LlmModel llmModel = userChatRequestDto.getLlmModel();
 
-        LlmWebClientService llmWebClientService = llmWebClientServiceMap.get(llmModel.getLlmType());
-        LlmChatRequestDto llmChatRequestDto = new LlmChatRequestDto(userChatRequestDto, systemPrompt);
+        //! 여기는 나중에 authHeader에 대한 값으로 변경
+        Long memberId = 102L;
 
-        return llmWebClientService.getUserRequestApplyInfo(llmChatRequestDto)
-                .map(userApplyInfoDto -> chatUtil.parseUserApplyInfoDto(userApplyInfoDto.getLlmResponse()));
+        return userChatHistoryService.getRecentHistory(memberId)
+                .collectList()
+                .flatMap(historyList -> {
+                    LlmChatRequestDto llmChatRequestDto = new LlmChatRequestDto(
+                            userChatRequestDto,
+                            systemPrompt,
+                            historyList
+                    );
+
+                    LlmWebClientService llmWebClientService = llmWebClientServiceMap.get(llmModel.getLlmType());
+                    return llmWebClientService.getUserRequestApplyInfo(llmChatRequestDto)
+                            .map(responseDto -> chatUtil.parseUserApplyInfoDto(responseDto.getLlmResponse()));
+
+                });
+
     }
 
 
@@ -70,12 +84,25 @@ public class LlmApplyService {
 
         [사용자 요청]
         "%s"
+        
+        [중요: 이전 대화 맥락 활용]
+        - 이전 대화 히스토리가 있으면 반드시 참고해서 누락된 값을 채워줘.
+        - 예시:
+          user: USD 환전 신청해줘
+          assistant: 얼마나 환전할까요?
+          user: 10달러
+          → exchangeKind: USD, inputExchangeMoney: 10 으로 판단 ✅
+        
+        [값이 부족할 때 규칙]
+        - 히스토리를 참고해도 필요한 값이 없으면 사용자에게 되물어봐.
+        - 단, 되물어볼 때는 JSON이 아닌 자연어로 질문해줘.
+        - 예: "얼마나 환전할까요?", "어떤 통화로 환전할까요?"
 
         [추출 규칙]
         - 통화 코드는 ISO-4217 형식 (USD, EUR, JPY)
         - 환전 금액은 숫자만 추출
         - 명확하지 않으면 통화에 대한 값은 null 값으로 반환하고, 환율에 대한 값은 0.0값으로 반환
-        - 추측하지
+        - 추측하지 마.
 
         [필드 설명]
         - currencyKind: 기준 통화
@@ -84,7 +111,7 @@ public class LlmApplyService {
           · 계산하지 말고 항상 0.0으로 둬.
         - exchangeKind: 교환하려는 통화
         - exchangeRate: 교환 하려는 통화의 환율 값
-            · 계산하지 말고 항상 0.0으로 둬.
+          · 계산하지 말고 항상 0.0으로 둬.
         - inputExchangeMoney: 교환하려는 통화의 금액
         - needCurrencyMoney: 계산 값이므로 항상 0 값으로 설정
 
@@ -103,7 +130,7 @@ public class LlmApplyService {
              exchangeRate: 0.0
              inputExchangeMoney: 10
 
-        [출력 형식]
+        [모든 값이 있을 때 출력 형식]
         반드시 아래 JSON 형식으로만 응답해.
         {
           "currencyKind": "KRW" | "USD" | "EUR" | "JPY",
@@ -113,6 +140,10 @@ public class LlmApplyService {
           "inputExchangeMoney": number | null,
           "needCurrencyMoney": 0
         }
+        
+        [주의]
+        - JSON 응답 시 다른 텍스트 절대 포함하지 마.
+        - 되물어볼 때는 자연어로, 완성됐을 때만 JSON으로 응답해.
         """, userRequest);
     }
 }
