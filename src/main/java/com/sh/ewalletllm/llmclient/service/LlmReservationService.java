@@ -45,30 +45,32 @@ public class LlmReservationService {
      */
 
     public Flux<UserChatResponseDto> getReservationCommand(UserChatRequestDto chatRequestDto, String authHeader) {
-        return requestCommandJson(chatRequestDto) //Mono<ResRequestDto>
-                .map(response -> validateRequestDto(response)) //Mono<ValidationResult>
-                .flatMapMany(result -> { //Flux<ValidationResult>
-
-                    // 검증 실패 DTO에 없는 값 존재
-                    if (!result.isResult()) {
-                        return Flux.fromIterable(result.getErrors())
-                                .map(errors -> new UserChatResponseDto(errors));
+        return requestCommandJson(chatRequestDto)
+                .flatMapMany(response -> {
+                    // 자연어 응답이면 그대로 사용자에게 전달
+                    if (response instanceof String) {
+                        return Flux.just(new UserChatResponseDto((String) response));
                     }
 
-                    return appClientService.appClientReservation(result.getDto(), authHeader) // Mono<AppReservationResultDto>
-                            .flatMapMany(reservationResult ->
-                                    Flux.just(
-                                            new UserChatResponseDto(reservationResult.getMsg() + "\n"),
-                                            new UserChatResponseDto(reservationResult.getData())
-                                    )
-                            );
+                    // JSON 파싱 성공이면 유효성 검사 후 예약 실행
+                    ResRequestDto resRequestDto = (ResRequestDto) response;
+                    ReservationValidationResult result = validateRequestDto(resRequestDto);
 
+                    if (!result.isResult()) {
+                        return Flux.fromIterable(result.getErrors())
+                                .map(error -> new UserChatResponseDto(error));
+                    }
+
+                    return appClientService.appClientReservation(result.getDto(), authHeader)
+                            .flatMapMany(reservationResult ->
+                                    Flux.just(new UserChatResponseDto(reservationResult.getMsg() + "\n" + reservationResult.getData()))
+                            );
                 });
 
     }
 
     // OPEN AI -> 사용자가 입력한 요청 값 JSON으로 데이터 전달 요청
-    private Mono<ResRequestDto> requestCommandJson(UserChatRequestDto userChatRequestDto) {
+    private Mono<Object> requestCommandJson(UserChatRequestDto userChatRequestDto) {
         String systemPrompt = reservationBuildSystemPrompt(userChatRequestDto.getRequest());
         LlmModel llmModel = userChatRequestDto.getLlmModel();
 
@@ -85,7 +87,14 @@ public class LlmReservationService {
 
                     LlmWebClientService llmWebClientService = llmWebClientServiceMap.get(llmModel.getLlmType());
                     return llmWebClientService.getCommandResRequestDto(llmChatRequestDto)
-                            .map(responseDto -> chatUtil.parseJsonReservationDto(responseDto.getLlmResponse()));
+                            .map(responseDto -> {
+                                ResRequestDto parsingData = chatUtil.parseJsonReservationDto(responseDto.getLlmResponse());
+
+                                if (parsingData == null) {
+                                    return (Object) responseDto.getLlmResponse();
+                                }
+                                return (Object) parsingData;
+                            });
 
                 });
     }
@@ -108,6 +117,10 @@ public class LlmReservationService {
 
             resRequestDto.setStartDate(start);
             resRequestDto.setEndDate(end);
+        }
+
+        if (resRequestDto.getReservationRate() == null) {
+            errors.add("예약 환율을 입력해주세요 !");
         }
 
         if (resRequestDto.getCurrencyKind() == null)
