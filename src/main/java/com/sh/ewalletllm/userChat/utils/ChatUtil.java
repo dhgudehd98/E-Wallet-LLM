@@ -31,6 +31,16 @@ public class ChatUtil {
 
     // 요청한 Reservation DTO에 대한 값 -> JSON 형식으로 변환
     public ResRequestDto parseJsonReservationDto(String llmResponse) {
+
+        //응답 값이 자연어 형태인지 , Json 형식인지 판단하는 부분
+        String isJson = llmResponse.trim();
+
+        if (!isJson.contains("{")) {
+            log.info("자연어 응답값 발생 : {}", llmResponse);
+            return null;
+        }
+
+        // JSON 형식이라면 Dto형태로 객체 변환
         String jsonString = extractJsonString(llmResponse);
         try {
             return  objectMapper.readValue(jsonString, ResRequestDto.class);
