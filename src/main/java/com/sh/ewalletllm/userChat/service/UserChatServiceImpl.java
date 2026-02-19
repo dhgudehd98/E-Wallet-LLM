@@ -2,6 +2,7 @@ package com.sh.ewalletllm.userChat.service;
 
 import com.sh.ewalletllm.api.service.AppClientService;
 import com.sh.ewalletllm.chathistory.service.UserChatHistoryService;
+import com.sh.ewalletllm.jwt.JwtUtil;
 import com.sh.ewalletllm.llmclient.LlmModel;
 import com.sh.ewalletllm.llmclient.LlmType;
 import com.sh.ewalletllm.llmclient.dto.LlmChatRequestDto;
@@ -49,6 +50,7 @@ public class UserChatServiceImpl implements UserChatService{
     private final ChatUtil chatUtil;
     private final UserChatHistoryService userChatHistoryService;
     private final LlmHistoryService llmHistoryService;
+    private final JwtUtil jwtUtil;
 
     @Override
     public Flux<UserChatResponseDto> getChatStream(UserChatRequestDto chatRequestDto) {
@@ -67,7 +69,8 @@ public class UserChatServiceImpl implements UserChatService{
      */
     @Override
     public Flux<UserChatResponseDto> getChatIntent(UserChatRequestDto userChatRequestDto, String authHeader) {
-        Long memberId = 102L;
+
+        Long memberId = jwtUtil.extractMemberId(authHeader);
 
         return userChatHistoryService.saveMessage(memberId, new ChatMessageDto(userChatRequestDto))
                 .then(userChatHistoryService.getRecentHistory(memberId).collectList())
@@ -84,7 +87,7 @@ public class UserChatServiceImpl implements UserChatService{
                                     default -> Flux.just(new UserChatResponseDto("요청을 이해하지 못했습니다."));
                                 };
 
-                                return result.concatMap(response ->  // ✅ flatMap -> concatMap
+                                return result.concatMap(response ->  //
                                         userChatHistoryService.saveMessage(memberId,
                                                         new ChatMessageDto(GptMessageRole.ASSISTANT, response.getResponse(), System.currentTimeMillis()))
                                                 .thenReturn(response)
@@ -93,7 +96,6 @@ public class UserChatServiceImpl implements UserChatService{
                 });
     }
 
-    // ✅ historyList를 파라미터로 받도록 변경
     private Mono<IntentDto> getIntentJson(UserChatRequestDto userChatRequestDto, List<ChatMessageDto> historyList) {
         String systemPrompt = getIntentSystemPrompt(userChatRequestDto.getRequest());
         LlmModel llmModel = userChatRequestDto.getLlmModel();

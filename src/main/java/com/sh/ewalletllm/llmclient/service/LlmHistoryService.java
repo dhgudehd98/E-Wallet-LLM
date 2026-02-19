@@ -1,6 +1,7 @@
 package com.sh.ewalletllm.llmclient.service;
 
 import com.sh.ewalletllm.chathistory.service.UserChatHistoryService;
+import com.sh.ewalletllm.jwt.JwtUtil;
 import com.sh.ewalletllm.llmclient.LlmModel;
 import com.sh.ewalletllm.llmclient.LlmType;
 import com.sh.ewalletllm.llmclient.dto.LlmChatRequestDto;
@@ -22,13 +23,13 @@ import java.util.Map;
 @Slf4j
 public class LlmHistoryService {
     private final Map<LlmType, LlmWebClientService> llmWebClientServiceMap;
-    private final ChatUtil chatUtil;
+    private final JwtUtil jwtUtil;
     private final UserChatHistoryService userChatHistoryService;
     public Flux<UserChatResponseDto> getHistoryCommand(UserChatRequestDto userChatRequestDto, String authHeader) {
         String systemPrompt = historySystemPrompt(userChatRequestDto.getRequest());
         LlmModel llmModel = userChatRequestDto.getLlmModel();
-        //! memberid 임시 설정
-        Long memberId = 102L;
+
+        Long memberId = jwtUtil.extractMemberId(authHeader);
         return userChatHistoryService.getRecentHistory(memberId)
                 .collectList()
                 .flatMapMany(historyList -> {

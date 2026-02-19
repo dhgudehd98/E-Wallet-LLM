@@ -2,6 +2,7 @@ package com.sh.ewalletllm.llmclient.service;
 
 import com.sh.ewalletllm.api.service.AppClientService;
 import com.sh.ewalletllm.chathistory.service.UserChatHistoryService;
+import com.sh.ewalletllm.jwt.JwtUtil;
 import com.sh.ewalletllm.llmclient.LlmModel;
 import com.sh.ewalletllm.llmclient.LlmType;
 import com.sh.ewalletllm.llmclient.dto.LlmChatRequestDto;
@@ -32,6 +33,7 @@ public class LlmReservationService {
     private final Map<LlmType, LlmWebClientService> llmWebClientServiceMap;
     private final ChatUtil chatUtil;
     private final UserChatHistoryService userChatHistoryService;
+    private final JwtUtil jwtUtil;
 
 
     /**
@@ -45,7 +47,8 @@ public class LlmReservationService {
      */
 
     public Flux<UserChatResponseDto> getReservationCommand(UserChatRequestDto chatRequestDto, String authHeader) {
-        return requestCommandJson(chatRequestDto)
+        Long memberId = jwtUtil.extractMemberId(authHeader);
+        return requestCommandJson(chatRequestDto, memberId)
                 .flatMapMany(response -> {
                     // 자연어 응답이면 그대로 사용자에게 전달
                     if (response instanceof String) {
@@ -70,12 +73,10 @@ public class LlmReservationService {
     }
 
     // OPEN AI -> 사용자가 입력한 요청 값 JSON으로 데이터 전달 요청
-    private Mono<Object> requestCommandJson(UserChatRequestDto userChatRequestDto) {
+    private Mono<Object> requestCommandJson(UserChatRequestDto userChatRequestDto, Long memberId) {
         String systemPrompt = reservationBuildSystemPrompt(userChatRequestDto.getRequest());
         LlmModel llmModel = userChatRequestDto.getLlmModel();
 
-        //! 여기는 나중에 authHeader에 대한 값으로 변경
-        Long memberId = 102L;
         return userChatHistoryService.getRecentHistory(memberId)
                 .collectList()
                 .flatMap(historyList -> {

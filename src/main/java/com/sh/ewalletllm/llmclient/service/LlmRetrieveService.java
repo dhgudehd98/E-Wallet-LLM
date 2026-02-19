@@ -3,6 +3,7 @@ package com.sh.ewalletllm.llmclient.service;
 
 import com.sh.ewalletllm.api.service.AppClientService;
 import com.sh.ewalletllm.chathistory.service.UserChatHistoryService;
+import com.sh.ewalletllm.jwt.JwtUtil;
 import com.sh.ewalletllm.llmclient.LlmModel;
 import com.sh.ewalletllm.llmclient.LlmType;
 import com.sh.ewalletllm.llmclient.dto.LlmChatRequestDto;
@@ -30,9 +31,10 @@ public class LlmRetrieveService {
     private final ChatUtil chatUtil;
     private final AppClientService appClientService;
     private final UserChatHistoryService userChatHistoryService;
+    private final JwtUtil jwtUtil;
 
     public Flux<UserChatResponseDto> getRetrieveCommand(UserChatRequestDto userChatRequestDto, String authHeader) {
-        Long memberId = 102L;
+        Long memberId = jwtUtil.extractMemberId(authHeader);
 
         return getCurrencyInfo(authHeader)
                 .collectList()

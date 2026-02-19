@@ -2,6 +2,7 @@ package com.sh.ewalletllm.llmclient.service;
 
 import com.sh.ewalletllm.api.service.AppClientService;
 import com.sh.ewalletllm.chathistory.service.UserChatHistoryService;
+import com.sh.ewalletllm.jwt.JwtUtil;
 import com.sh.ewalletllm.llmclient.LlmModel;
 import com.sh.ewalletllm.llmclient.LlmType;
 import com.sh.ewalletllm.llmclient.dto.Apply.UserApplyInfoDto;
@@ -30,6 +31,7 @@ public class LlmApplyService {
     private final ChatUtil chatUtil;
     private final AppClientService appClientService;
     private final UserChatHistoryService userChatHistoryService;
+    private final JwtUtil jwtUtil;
 
     /**
      * 환전 신청 플로우 구성
@@ -40,7 +42,9 @@ public class LlmApplyService {
 
      */
     public Flux<UserChatResponseDto> getApplyCommand(UserChatRequestDto userChatRequestDto, String authHeader) {
-        return getUserRequestApplyInfo(userChatRequestDto) // Mono<UserApplyInfoDto>
+        Long memberId = jwtUtil.extractMemberId(authHeader);
+
+        return getUserRequestApplyInfo(userChatRequestDto, memberId) // Mono<UserApplyInfoDto>
                 .flatMap(userApplyInfoDto -> appClientService.appClientApply(userApplyInfoDto, authHeader)) // Mono<AppApplyResultDto>
                 .flatMapMany(appApplyResultDto ->
                         Flux.just(
@@ -50,13 +54,10 @@ public class LlmApplyService {
 
     }
 
-    private Mono<UserApplyInfoDto> getUserRequestApplyInfo(UserChatRequestDto userChatRequestDto) {
+    private Mono<UserApplyInfoDto> getUserRequestApplyInfo(UserChatRequestDto userChatRequestDto, Long memberId) {
         String userRequest = userChatRequestDto.getRequest();
         String systemPrompt = getUserRequestApplyPrompt(userRequest);
         LlmModel llmModel = userChatRequestDto.getLlmModel();
-
-        //! 여기는 나중에 authHeader에 대한 값으로 변경
-        Long memberId = 102L;
 
         return userChatHistoryService.getRecentHistory(memberId)
                 .collectList()
